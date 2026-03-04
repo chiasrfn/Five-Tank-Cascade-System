@@ -3,7 +3,6 @@ function [K,rho,feas]=LMI_DT_Disk_Struct(Ftot,Gdec,Hdec,N,ContStruc,alpha,rho_ta
 % discrete-time system, placing eigenvalues in a Disk(alpha, rho_target).
 %
 % Modified to minimize control effort and reduce overshoot.
-
 Gtot=[];
 for i=1:N
     m(i)=size(Gdec{i},2);
@@ -12,10 +11,9 @@ for i=1:N
 end
 ntot=size(Ftot,1);
 mtot=sum(m);
-
 yalmip clear
 
-% --- Variabili LMI ---
+% --- LMI Variables ---
 P = sdpvar(ntot, ntot, 'symmetric');
 L = sdpvar(mtot, ntot);
 
@@ -23,17 +21,17 @@ if ContStruc==ones(N,N)
     % Centralized design
 else
     % Decentralized/distributed design
-    % Ricostruiamo P a blocchi e imponiamo i vincoli strutturali su L
+    % Reconstruct P as block-diagonal and impose structural constraints on L
     P = [];
-    L = sdpvar(mtot, ntot); % Ridefiniamo L per applicare i vincoli
+    L = sdpvar(mtot, ntot); % Redefine L to apply constraints
     minc = 0;
     for i=1:N
-        % Costruzione di P a blocchi diagonali
+        % Building P with diagonal blocks
         P = blkdiag(P, sdpvar(n(i), n(i), 'symmetric'));
         ninc = 0;
         for j=1:N
             if ContStruc(i,j)==0
-                % Vincolo strutturale su L (maschera di zeri)
+                % Structural constraint on L (zero mask)
                 L(minc+1:minc+m(i), ninc+1:ninc+n(j)) = zeros(m(i), n(j));
             end
             ninc = ninc + n(j);
@@ -42,10 +40,10 @@ else
     end
 end
 
-% --- LMI: Posizionamento Poli in Disco Discreto ---
-% Regione: Cerchio con centro 'alpha' e raggio 'rho_target'
-% La condizione è: |eig(F+GK) - alpha| < rho_target
-% Formulazione LMI (Schur Complement):
+% --- LMI: Pole Placement in Discrete Disk ---
+% Region: Circle with center 'alpha' and radius 'rho_target'
+% Condition: |eig(F+GK) - alpha| < rho_target
+% LMI Formulation (Schur Complement):
 % [ rho*P                 (F*P + G*L - alpha*P) ]
 % [ (F*P + G*L - alpha*P)'       rho*P          ] > 0
 
@@ -53,27 +51,25 @@ Block11 = rho_target * P;
 Block12 = Ftot * P + Gtot * L - alpha * P;
 Block21 = Block12';
 Block22 = rho_target * P;
-
 LMI_Matrix = [Block11, Block12; 
               Block21, Block22];
 
-% Vincoli di positività (epsilon piccolo per evitare problemi numerici)
+% Positivity constraints (small epsilon to avoid numerical issues)
 epsilon = 1e-6;
 LMIconstr = [P >= epsilon*eye(ntot), LMI_Matrix >= epsilon*eye(2*ntot)];
 
-% --- Obiettivo: Minimizzare l'energia di controllo ---
-% Questo riduce il guadagno K e abbatte l'overshoot iniziale.
+% --- Objective: Minimize control energy ---
+% This reduces gain K and dampens initial overshoot.
 Objective = norm(L, 'fro'); 
 
-% --- Soluzione ---
+% --- Solver ---
 options = sdpsettings('solver','sedumi','verbose',0);
 sol = optimize(LMIconstr, [], options);
-
 feas = sol.problem;
 L_val = double(L);
 P_val = double(P);
 
-% Calcolo del guadagno K
+% Gain calculation
 if feas == 0
     K = L_val / P_val;
     rho = max(abs(eig(Ftot + Gtot*K)));
@@ -82,8 +78,4 @@ else
     rho = NaN;
     disp('LMI Infeasible or Solver Error');
 end
-
 end
-
-
-
