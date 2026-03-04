@@ -45,4 +45,20 @@ LMI1 = [P - Gw*Gw',      (Ftot*P + Gtot*L);
 LMI2 = [S,               (Cz*P + Dzu*L);
         (Cz*P + Dzu*L)', P] >= 0;
 
-Constraints = [LMI1, LMI
+Constraints = [LMI1, LMI2, P >= 1e-6*eye(ntot)];
+
+% 5. Solve using SeDuMi
+options = sdpsettings('solver', 'sedumi', 'verbose', 0);
+sol = optimize(Constraints, trace(S), options);
+
+% 6. Output Processing
+feas = sol.problem;
+if feas == 0 || feas == 4
+    K = value(L) / value(P);
+    gamma_opt = sqrt(double(trace(S)));
+else
+    K = zeros(mtot, ntot);
+    gamma_opt = Inf;
+    disp('LMI Infeasible or Numerical Issue');
+end
+end
