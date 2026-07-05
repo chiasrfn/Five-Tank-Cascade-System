@@ -52,5 +52,5 @@ Simulation results are stored in the `images/` directory, organized into two sub
 
 ---
 
-## 🎓 Academic Context
+## Academic Context
 This project was developed as part of the **Networked Control Systems** curriculum. It demonstrates the trade-offs between communication complexity and control performance in interconnected systems.
